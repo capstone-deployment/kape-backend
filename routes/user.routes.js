@@ -183,7 +183,8 @@ router.delete("/delete/manager/:id", jwtAuthorize, async (req, res) => {
 });
 
 router.post("/add/manager", jwtAuthorize, async (req, res) => {
-    const { firstName, lastName, birthDate, email, password } = req.body;
+    const { firstName, lastName, birthDate, email, password, store_id } =
+        req.body;
 
     try {
         // Hash the password
@@ -191,13 +192,20 @@ router.post("/add/manager", jwtAuthorize, async (req, res) => {
 
         // SQL query to insert a new user into the users table, setting role to 'manager'
         const query = `
-            INSERT INTO users (first_name, last_name, birth_date, role, email, password)
-            VALUES ($1, $2, $3, 'manager', $4, $5) 
+            INSERT INTO users (first_name, last_name, birth_date, role, email, password, store_id)
+            VALUES ($1, $2, $3, 'manager', $4, $5, $6) 
             RETURNING * 
         `;
 
         // Use parameterized query to prevent SQL injection
-        const values = [firstName, lastName, birthDate, email, hashedPassword];
+        const values = [
+            firstName,
+            lastName,
+            birthDate,
+            email,
+            hashedPassword,
+            store_id,
+        ];
 
         // Execute the query
         const users = await pool.query(query, values);
@@ -218,6 +226,127 @@ router.post("/auth-verify", jwtAuthorize, (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).send("Server error");
+    }
+});
+
+router.get("/get/owners", jwtAuthorize, async (req, res) => {
+    try {
+        const query = `
+            SELECT user_id, first_name, last_name, birth_date, created_at, email
+            FROM public.users
+            WHERE role = 'owner'
+        `;
+
+        const users = await pool.query(query);
+        return res.json(users.rows);
+    } catch (error) {
+        console.error("Error fetching user data:", error);
+        throw error; // Handle error as needed
+    }
+});
+
+router.post("/add/owner", jwtAuthorize, async (req, res) => {
+    const { firstName, lastName, birthDate, email, password } = req.body;
+
+    // Ensure all necessary fields are provided
+    if (!firstName || !lastName || !birthDate || !email || !password) {
+        return res.status(400).json({ error: "All fields are required" });
+    }
+
+    try {
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10); // Adjust salt rounds as needed
+
+        // SQL query to insert a new owner into the users table
+        const query = `
+            INSERT INTO users (first_name, last_name, birth_date, role, email, password)
+            VALUES ($1, $2, $3, 'owner', $4, $5)
+            RETURNING * 
+        `;
+
+        // Use parameterized query to prevent SQL injection
+        const values = [firstName, lastName, birthDate, email, hashedPassword];
+
+        // Execute the query
+        const result = await pool.query(query, values);
+
+        res.status(201).json({
+            message: "Owner created successfully",
+            owner: result.rows[0],
+        });
+    } catch (error) {
+        console.error("Error inserting owner data:", error);
+        res.status(500).json({
+            message: "Error creating owner",
+            error: error.message,
+        });
+    }
+});
+
+router.delete("/delete/owner/:id", jwtAuthorize, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Delete the owner user with the given user_id
+        const query = `DELETE FROM users WHERE user_id = $1 AND role = 'owner' RETURNING *`;
+        const values = [id];
+
+        // Execute the query
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Owner not found" });
+        }
+
+        res.json({
+            message: "Owner deleted successfully",
+            owner: result.rows[0],
+        });
+    } catch (error) {
+        console.error("Error deleting owner:", error);
+        res.status(500).json({
+            message: "Error deleting owner",
+            error: error.message,
+        });
+    }
+});
+
+router.put("/update/owner/:id", jwtAuthorize, async (req, res) => {
+    const { id } = req.params;
+    const { firstName, lastName, birthDate, email } = req.body;
+
+    // Ensure the required fields are provided (except password)
+    if (!firstName || !lastName || !birthDate || !email) {
+        return res
+            .status(400)
+            .json({ error: "All fields except password are required" });
+    }
+
+    try {
+        // Prepare the base query for updating owner information
+        let query = `UPDATE users SET first_name = $1, last_name = $2, birth_date = $3, email = $4`;
+        let values = [firstName, lastName, birthDate, email];
+
+        query += ` WHERE user_id = $5 AND role = 'owner' RETURNING *`;
+        values.push(id); // Add the user ID for the WHERE clause
+
+        // Execute the update query
+        const result = await pool.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Owner not found" });
+        }
+
+        res.json({
+            message: "Owner updated successfully",
+            owner: result.rows[0],
+        });
+    } catch (error) {
+        console.error("Error updating owner data:", error);
+        res.status(500).json({
+            message: "Error updating owner",
+            error: error.message,
+        });
     }
 });
 
