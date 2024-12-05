@@ -8,7 +8,10 @@ const pool = new Pool({
     port: process.env.DB_PORT,
     database: process.env.DB_NAME,
     connectionString: process.env.DB_URL,
-    ssl: process.env.DB_URL ? true : false,
+    connectionString: process.env.DB_URL,
+    ssl: process.env.DB_URL
+        ? { rejectUnauthorized: false } // Disable certificate verification for self-signed certificates
+        : false, // No SSL if DB_URL is not provided
 });
 
 module.exports = pool;

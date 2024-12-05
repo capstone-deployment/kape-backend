@@ -99,7 +99,7 @@ router.post("/login", async (req, res) => {
 router.get("/get/managers", jwtAuthorize, async (req, res) => {
     try {
         const query = `
-            SELECT user_id, first_name, last_name, birth_date, created_at, email
+            SELECT user_id, first_name, last_name, created_at, email
             FROM public.users
             WHERE role = 'manager'
         `;
@@ -232,7 +232,7 @@ router.post("/auth-verify", jwtAuthorize, (req, res) => {
 router.get("/get/owners", jwtAuthorize, async (req, res) => {
     try {
         const query = `
-            SELECT user_id, first_name, last_name, birth_date, created_at, email
+            SELECT user_id, first_name, last_name, created_at, email
             FROM public.users
             WHERE role = 'owner'
         `;
